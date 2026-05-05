@@ -18,10 +18,11 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, GroupAction,
-                            IncludeLaunchDescription, SetEnvironmentVariable)
+                            IncludeLaunchDescription)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
+
 
 def generate_launch_description():
     launch_rmw_dir = get_package_share_directory('br2_navigation')
@@ -32,7 +33,6 @@ def generate_launch_description():
     map_yaml_file = LaunchConfiguration('map')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
-
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
@@ -77,7 +77,8 @@ def generate_launch_description():
                               'use_lifecycle_mgr': 'false'}.items()),
 
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(launch_rmw_dir, 'launch', 'navigation_launch.py')),
+            PythonLaunchDescriptionSource(
+                os.path.join(launch_rmw_dir, 'launch', 'navigation_launch.py')),
             launch_arguments={'use_sim_time': use_sim_time,
                               'autostart': autostart,
                               'params_file': params_file,

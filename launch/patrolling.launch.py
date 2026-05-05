@@ -1,3 +1,17 @@
+# Copyright 2026 Nil
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
 
 from launch import LaunchDescription
@@ -28,14 +42,24 @@ def _include_tiago_gazebo_if_available(context):
     try:
         gazebo_ros_dir = get_package_share_directory('gazebo_ros')
         return [
-            LogInfo(msg='tiago_gazebo package not found. Launching gazebo_ros fallback simulation.'),
+            LogInfo(
+                msg=(
+                    'tiago_gazebo package not found. '
+                    'Launching gazebo_ros fallback simulation.'
+                )
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(f'{gazebo_ros_dir}/launch/gazebo.launch.py')
             )
         ]
     except PackageNotFoundError:
         return [
-            LogInfo(msg='No simulation package found (tiago_gazebo or gazebo_ros). Continuing with BT node only.')
+            LogInfo(
+                msg=(
+                    'No simulation package found '
+                    '(tiago_gazebo or gazebo_ros). Continuing with BT node only.'
+                )
+            )
         ]
 
 

@@ -1,3 +1,17 @@
+// Copyright 2026 Nil
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <string>
 #include <memory>
 #include "behaviortree_cpp_v3/behavior_tree.h"
@@ -11,45 +25,44 @@
 
 int main(int argc, char * argv[])
 {
-    rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("patrolling_node");
+  rclcpp::init(argc, argv);
+  auto node = rclcpp::Node::make_shared("patrolling_node");
 
-    BT::BehaviorTreeFactory factory;
-    BT::SharedLibrary loader;
+  BT::BehaviorTreeFactory factory;
+  BT::SharedLibrary loader;
 
-    factory.registerFromPlugin(loader.getOSName("battery_checker_bt_node"));
-    factory.registerFromPlugin(loader.getOSName("patrol_bt_node"));
-    factory.registerFromPlugin(loader.getOSName("recharge_bt_node"));
-    factory.registerFromPlugin(loader.getOSName("move_bt_node"));
-    factory.registerFromPlugin(loader.getOSName("get_waypoint_bt_node"));
-    factory.registerFromPlugin(loader.getOSName("track_objects_bt_node"));
+  factory.registerFromPlugin(loader.getOSName("battery_checker_bt_node"));
+  factory.registerFromPlugin(loader.getOSName("patrol_bt_node"));
+  factory.registerFromPlugin(loader.getOSName("recharge_bt_node"));
+  factory.registerFromPlugin(loader.getOSName("move_bt_node"));
+  factory.registerFromPlugin(loader.getOSName("get_waypoint_bt_node"));
+  factory.registerFromPlugin(loader.getOSName("track_objects_bt_node"));
 
-    std::string pkgpath = ament_index_cpp::get_package_share_directory("bt_patrolling");
-    std::string xml_file = pkgpath + "/behavior_tree_xml/patrolling.xml";
+  std::string pkgpath = ament_index_cpp::get_package_share_directory("bt_patrolling");
+  std::string xml_file = pkgpath + "/behavior_tree_xml/patrolling.xml";
 
-    auto blackboard = BT::Blackboard::create();
-    blackboard->set("node", node);
-    BT::Tree tree = factory.createTreeFromFile(xml_file, blackboard);
+  auto blackboard = BT::Blackboard::create();
+  blackboard->set("node", node);
+  BT::Tree tree = factory.createTreeFromFile(xml_file, blackboard);
 
 #ifdef ZMQ_FOUND
-    std::shared_ptr<BT::PublisherZMQ> publisher_zmq;
-    try {
-        publisher_zmq = std::make_shared<BT::PublisherZMQ>(tree, 10, 2666, 2667);
-    } catch (const std::exception & e) {
-        RCLCPP_WARN(node->get_logger(), "ZMQ logger disabled: %s", e.what());
-    }
+  std::shared_ptr<BT::PublisherZMQ> publisher_zmq;
+  try {
+    publisher_zmq = std::make_shared<BT::PublisherZMQ>(tree, 10, 2666, 2667);
+  } catch (const std::exception & e) {
+    RCLCPP_WARN(node->get_logger(), "ZMQ logger disabled: %s", e.what());
+  }
 #endif
-    rclcpp::Rate rate(10);
+  rclcpp::Rate rate(10);
 
-    bool finish = false;
-    while (!finish && rclcpp::ok())
-    {
-        finish = tree.rootNode()->executeTick() == BT::NodeStatus::SUCCESS;
+  bool finish = false;
+  while (!finish && rclcpp::ok()) {
+    finish = tree.rootNode()->executeTick() == BT::NodeStatus::SUCCESS;
 
-        rclcpp::spin_some(node);
-        rate.sleep();
-    }
+    rclcpp::spin_some(node);
+    rate.sleep();
+  }
 
-    rclcpp::shutdown();
-    return 0;
+  rclcpp::shutdown();
+  return 0;
 }
