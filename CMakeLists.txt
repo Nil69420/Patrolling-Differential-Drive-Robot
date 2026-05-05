@@ -76,12 +76,12 @@ if(NOT BTCPP_TARGET AND NOT BTCPP_LIBRARIES)
   set(BTCPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
   set(BTCPP_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 
-  FetchContent_Declare(
+  fetchcontent_declare(
     behaviortree_cpp_v3
     GIT_REPOSITORY https://github.com/BehaviorTree/BehaviorTree.CPP.git
     GIT_TAG 3.8.6
   )
-  FetchContent_MakeAvailable(behaviortree_cpp_v3)
+  fetchcontent_makeavailable(behaviortree_cpp_v3)
 
   if(TARGET behaviortree_cpp_v3::behaviortree_cpp_v3)
     set(BTCPP_TARGET behaviortree_cpp_v3::behaviortree_cpp_v3)
