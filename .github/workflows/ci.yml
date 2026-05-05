@@ -82,7 +82,11 @@ jobs:
           source /opt/ros/${ROS_DISTRO}/setup.bash
           source install/setup.bash
           colcon test --base-paths . --packages-select bt_patrolling --event-handlers console_cohesion+ --ctest-args --output-on-failure
-          colcon test-result --all --verbose --return-code-on-test-failure
+          colcon test-result --all --verbose | tee /tmp/colcon-test-result.txt
+          if awk 'match($0, /: [0-9]+ tests?, ([0-9]+) errors?, ([0-9]+) failures?/, a) { if (a[1] != "0" || a[2] != "0") bad = 1 } END { exit bad ? 0 : 1 }' /tmp/colcon-test-result.txt; then
+            echo "Detected test or lint failures"
+            exit 1
+          fi
 
   navigation-contract:
     name: Navigation Contract Tests
