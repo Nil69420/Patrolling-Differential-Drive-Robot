@@ -21,16 +21,36 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 
 
-def _include_tiago_gazebo_if_available(context):
+def _include_simulation_if_available(context):
     if LaunchConfiguration('start_tiago_gazebo').perform(context).lower() != 'true':
         return []
 
+    simulation_backend = LaunchConfiguration('simulation_backend').perform(context).lower()
+    if simulation_backend not in ('auto', 'ignition', 'classic'):
+        simulation_backend = 'auto'
+
     world_name = LaunchConfiguration('world_name').perform(context)
+    ignition_world = LaunchConfiguration('ignition_world').perform(context)
+
+    if simulation_backend in ('auto', 'ignition'):
+        try:
+            ros_ign_share = get_package_share_directory('ros_ign_gazebo')
+            return [
+                LogInfo(msg='Launching Ignition Gazebo simulation via ros_ign_gazebo.'),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        f'{ros_ign_share}/launch/ign_gazebo.launch.py'
+                    ),
+                    launch_arguments={'ign_args': f'-r {ignition_world}'}.items(),
+                )
+            ]
+        except PackageNotFoundError:
+            pass
 
     try:
         tiago_share = get_package_share_directory('tiago_gazebo')
         return [
-            LogInfo(msg='Launching TIAGo Gazebo simulation.'),
+            LogInfo(msg='Launching TIAGo Gazebo classic simulation.'),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(f'{tiago_share}/launch/tiago_gazebo.launch.py'),
                 launch_arguments={'world_name': world_name}.items(),
@@ -44,7 +64,7 @@ def _include_tiago_gazebo_if_available(context):
         return [
             LogInfo(
                 msg=(
-                    'tiago_gazebo package not found. '
+                    'Neither ros_ign_gazebo nor tiago_gazebo found. '
                     'Launching gazebo_ros fallback simulation.'
                 )
             ),
@@ -57,7 +77,8 @@ def _include_tiago_gazebo_if_available(context):
             LogInfo(
                 msg=(
                     'No simulation package found '
-                    '(tiago_gazebo or gazebo_ros). Continuing with BT node only.'
+                    '(ros_ign_gazebo, tiago_gazebo, or gazebo_ros). '
+                    'Continuing with BT node only.'
                 )
             )
         ]
@@ -94,13 +115,23 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'start_tiago_gazebo',
             default_value='true',
-            description='Start TIAGo Gazebo simulation before BT node',
+            description='Start simulator before BT node',
+        ),
+        DeclareLaunchArgument(
+            'simulation_backend',
+            default_value='ignition',
+            description='Simulation backend preference: ignition, classic, or auto',
+        ),
+        DeclareLaunchArgument(
+            'ignition_world',
+            default_value='empty.sdf',
+            description='Ignition world passed through ros_ign_gazebo ign_args',
         ),
         DeclareLaunchArgument(
             'world_name',
             default_value='small_office',
             description='Gazebo world for tiago_gazebo launch',
         ),
-        OpaqueFunction(function=_include_tiago_gazebo_if_available),
+        OpaqueFunction(function=_include_simulation_if_available),
         bt_launch,
     ])

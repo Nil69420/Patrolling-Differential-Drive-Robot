@@ -63,10 +63,22 @@ source install/setup.bash
 ros2 launch bt_patrolling patrolling.launch.py
 ```
 
-Force TIAGo simulation path in wrapper:
+Wrapper simulation order and backend selection:
+
+- default (`simulation_backend:=ignition`): try `ros_ign_gazebo` first, then fall back to classic Gazebo (`tiago_gazebo`, then `gazebo_ros`),
+- force classic-first behavior: `simulation_backend:=classic`,
+- auto mode (same practical behavior as ignition-first fallback): `simulation_backend:=auto`.
+
+Force Ignition simulation path in wrapper (if `ros_ign_gazebo` is installed):
 
 ```bash
-ros2 launch bt_patrolling patrolling.launch.py start_tiago_gazebo:=true world_name:=small_office
+ros2 launch bt_patrolling patrolling.launch.py simulation_backend:=ignition ignition_world:=empty.sdf
+```
+
+Force classic TIAGo simulation path in wrapper:
+
+```bash
+ros2 launch bt_patrolling patrolling.launch.py simulation_backend:=classic world_name:=small_office
 ```
 
 Disable simulator and run only BT:
