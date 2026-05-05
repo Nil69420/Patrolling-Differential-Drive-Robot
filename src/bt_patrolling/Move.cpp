@@ -6,6 +6,7 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "behaviortree_cpp_v3/behavior_tree.h"
+#include "rclcpp/rclcpp.hpp"
 
 namespace bt_patrolling
 {
@@ -29,7 +30,7 @@ Move::on_tick()
 BT::NodeStatus
 Move::on_success()
 {
-    RCLCPP_INFO(node->get_logger(), "navigation success");
+    RCLCPP_INFO(node_->get_logger(), "navigation success");
 
     return BT::NodeStatus::SUCCESS;
 }

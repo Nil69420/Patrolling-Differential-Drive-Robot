@@ -1,6 +1,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 #include "bt_patrolling/BatteryChecker.hpp"
 #include "behaviortree_cpp_v3/behavior_tree.h"
 #include "geometry_msgs/msg/twist.hpp"
@@ -25,7 +26,7 @@ BatteryChecker::BatteryChecker(
 }
 
 void
-BatteryChecker::vel_callback(const geometry_msgs::Twist::SharedPtr msg)
+BatteryChecker::vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
 {
     last_twist_ = *msg;
 }
@@ -42,7 +43,9 @@ BatteryChecker::update_battery()
     float dt = (node_->now() - last_reading_time_).seconds();
     last_reading_time_ = node_->now();
 
-    float vel = sqrt(last_twist.linear.x * last_twist_.linear.x + last_twist_.angular.z * last_twist_.angular.z);
+    float vel = std::sqrt(
+        last_twist_.linear.x * last_twist_.linear.x +
+        last_twist_.angular.z * last_twist_.angular.z);
     battery_level = std::max(0.f, battery_level - (vel * dt * DECAY_LEVEL) - EPSILON *dt);
 
     config().blackboard->set("battery_level", battery_level);
@@ -54,8 +57,6 @@ BatteryChecker::tick()
     update_battery();
     float battery_level;
     config().blackboard->get("battery_level", battery_level);
-
-    std::cout << battery_level << std::endl;
 
     if (battery_level < MIN_LEVEL)
     {

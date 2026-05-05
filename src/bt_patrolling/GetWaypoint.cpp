@@ -30,9 +30,9 @@ GetWaypoint::GetWaypoint(
     wp.pose.position.y = -12.38;
     waypoints_.push_back(wp);
 
-    wp.pose.position.x = -5.52;
+    wp.pose.position.x = -5.32;
     wp.pose.position.y = -8.85;
-    waypoints_.push_back(wop);
+    waypoints_.push_back(wp);
 
     wp.pose.position.x = -0.56;
     wp.pose.position.y = 0.24;
@@ -47,7 +47,7 @@ GetWaypoint::halt()
 BT::NodeStatus
 GetWaypoint::tick()
 {
-    std::string_id;
+    std::string id;
     getInput("wp_id", id);
 
     if (id == "recharge")

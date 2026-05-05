@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    name: Build Release Artifact
+    runs-on: ubuntu-latest
+    container: ros:foxy-ros-base-focal
+    env:
+      ROS_DISTRO: foxy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          set -e
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            python3-vcstool \
+            git
+
+      - name: Resolve ROS Dependencies
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          rosdep init 2>/dev/null || true
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: Build Release Profile
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          colcon build \
+            --base-paths . \
+            --packages-select bt_patrolling \
+            --cmake-args \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
+            -DCMAKE_CXX_FLAGS=-O3
+
+      - name: Package Install Tree
+        id: package
+        shell: bash
+        run: |
+          set -e
+          ARCHIVE_NAME=bt_patrolling-${GITHUB_REF_NAME}.tar.gz
+          tar -czf ${ARCHIVE_NAME} install/bt_patrolling
+          echo "archive_name=${ARCHIVE_NAME}" >> ${GITHUB_OUTPUT}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bt_patrolling-${{ github.ref_name }}
+          path: ${{ steps.package.outputs.archive_name }}
+
+      - name: Publish GitHub Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.archive_name }}

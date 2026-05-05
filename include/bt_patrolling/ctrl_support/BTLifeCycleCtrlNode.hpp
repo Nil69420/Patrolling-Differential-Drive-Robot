@@ -23,7 +23,9 @@ public:
     const std::string & xml_tag_name,
     const std::string & node_name,
     const BT::NodeConfiguration & conf)
-  : BT::ActionNodeBase(xml_tag_name, conf), ctrl_node_name_(node_name)
+  : BT::ActionNodeBase(xml_tag_name, conf),
+    ctrl_node_name_(node_name),
+    ctrl_node_state_(lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN)
   {
     node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
   }
@@ -38,11 +40,12 @@ public:
   typename rclcpp::Client<serviceT>::SharedPtr createServiceClient(const std::string & service_name)
   {
     auto srv = node_->create_client<serviceT>(service_name);
-    while (!srv->wait_for_service(1s)) {
+    for (size_t i = 0; i < 20; ++i) {
+      if (srv->wait_for_service(100ms)) {
+        return srv;
+      }
       if (!rclcpp::ok()) {
-        RCLCPP_ERROR(node_->get_logger(), "Interrupted while waiting for the service. Exiting.");
-      } else {
-        RCLCPP_INFO(node_->get_logger(), "service not available, waiting again...");
+        break;
       }
     }
     return srv;
@@ -63,14 +66,25 @@ public:
   BT::NodeStatus tick() override
   {
     if (status() == BT::NodeStatus::IDLE) {
+      setStatus(BT::NodeStatus::RUNNING);
       change_state_client_ = createServiceClient<lifecycle_msgs::srv::ChangeState>(
         ctrl_node_name_ + "/change_state");
       get_state_client_ = createServiceClient<lifecycle_msgs::srv::GetState>(
         ctrl_node_name_ + "/get_state");
     }
 
+    if (!change_state_client_ || !get_state_client_ ||
+      !change_state_client_->service_is_ready() || !get_state_client_->service_is_ready())
+    {
+      rclcpp::spin_some(node_);
+      return BT::NodeStatus::RUNNING;
+    }
+
     if (ctrl_node_state_ != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
       ctrl_node_state_ = get_state();
+      if (ctrl_node_state_ == lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN) {
+        return BT::NodeStatus::RUNNING;
+      }
       set_state(lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
     }
 
@@ -81,7 +95,9 @@ public:
 
   void halt() override
   {
-    if (ctrl_node_state_ == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    if (change_state_client_ && change_state_client_->service_is_ready() &&
+      ctrl_node_state_ == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    {
       set_state(lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
     }
     setStatus(BT::NodeStatus::IDLE);
@@ -90,14 +106,16 @@ public:
   // Get the state of the controlled node
   uint8_t get_state()
   {
+    if (!get_state_client_ || !get_state_client_->service_is_ready()) {
+      return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
+    }
+
     auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
     auto result = get_state_client_->async_send_request(request);
 
-    if (rclcpp::spin_until_future_complete(node_, result) !=
+    if (rclcpp::spin_until_future_complete(node_->get_node_base_interface(), result) !=
       rclcpp::FutureReturnCode::SUCCESS)
     {
-      lifecycle_msgs::msg::State get_state;
-
       RCLCPP_ERROR(node_->get_logger(), "Failed to call get_state service");
       return lifecycle_msgs::msg::State::PRIMARY_STATE_UNKNOWN;
     }
@@ -108,6 +126,10 @@ public:
   // Get the state of the controlled node. Ot can fail, if not transition possible
   bool set_state(uint8_t state)
   {
+    if (!change_state_client_ || !change_state_client_->service_is_ready()) {
+      return false;
+    }
+
     auto request = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
 
     if (state == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE &&
@@ -132,7 +154,7 @@ public:
 
     auto result = change_state_client_->async_send_request(request);
 
-    if (rclcpp::spin_until_future_complete(node_, result) !=
+    if (rclcpp::spin_until_future_complete(node_->get_node_base_interface(), result) !=
       rclcpp::FutureReturnCode::SUCCESS)
     {
       RCLCPP_ERROR(node_->get_logger(), "Failed to call set_state service");
@@ -160,7 +182,6 @@ public:
   rclcpp::Node::SharedPtr node_;
 };
 
+}
 
-}  
-
-#endif  
+#endif

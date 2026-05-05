@@ -21,7 +21,7 @@ TrackObjects::TrackObjects(
 #include "behaviortree_cpp_v3/bt_factory.h"
 BT_REGISTER_NODES(factory)
 {
-    BT::NodeBuilder builer =
+    BT::NodeBuilder builder =
         [](const std::string & name, const BT::NodeConfiguration & config)
         {
             return std::make_unique<bt_patrolling::TrackObjects>(
@@ -29,7 +29,7 @@ BT_REGISTER_NODES(factory)
             
         };
 
-        factory.registerBuilder<bt_patrolling::TrackObjects>(
-            "TrackObjects", builder);
+    factory.registerBuilder<bt_patrolling::TrackObjects>(
+        "TrackObjects", builder);
         
 }

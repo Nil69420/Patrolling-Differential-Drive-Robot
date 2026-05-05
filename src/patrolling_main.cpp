@@ -3,7 +3,9 @@
 #include "behaviortree_cpp_v3/behavior_tree.h"
 #include "behaviortree_cpp_v3/bt_factory.h"
 #include "behaviortree_cpp_v3/utils/shared_library.h"
+#ifdef ZMQ_FOUND
 #include "behaviortree_cpp_v3/loggers/bt_zmq_publisher.h"
+#endif
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -29,7 +31,14 @@ int main(int argc, char * argv[])
     blackboard->set("node", node);
     BT::Tree tree = factory.createTreeFromFile(xml_file, blackboard);
 
-    auto publisher_zmq = std::make_shared<BT::PublisherZMQ>(tree, 10, 2666, 2667);
+#ifdef ZMQ_FOUND
+    std::shared_ptr<BT::PublisherZMQ> publisher_zmq;
+    try {
+        publisher_zmq = std::make_shared<BT::PublisherZMQ>(tree, 10, 2666, 2667);
+    } catch (const std::exception & e) {
+        RCLCPP_WARN(node->get_logger(), "ZMQ logger disabled: %s", e.what());
+    }
+#endif
     rclcpp::Rate rate(10);
 
     bool finish = false;

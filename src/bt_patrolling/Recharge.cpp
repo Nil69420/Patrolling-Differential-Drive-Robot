@@ -21,8 +21,6 @@ Recharge::halt()
 BT::NodeStatus
 Recharge::tick()
 {
-    std::cout << "Recharge" << counter_ < std::endl;
-
     if(counter_++ < 50)
     {
         return BT::NodeStatus::RUNNING;

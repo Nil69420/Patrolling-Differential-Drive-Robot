@@ -3,6 +3,7 @@
 
 #include <string>
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "bt_patrolling/ctrl_support/BTActionNode.hpp"
 #include "behaviortree_cpp_v3/behavior_tree.h"
 #include "behaviortree_cpp_v3/bt_factory.h"

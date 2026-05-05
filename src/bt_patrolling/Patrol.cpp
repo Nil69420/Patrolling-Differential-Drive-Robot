@@ -10,19 +10,22 @@ namespace bt_patrolling
 using namespace std::chrono_literals;
 
 Patrol::Patrol(
-    const std:string & xml_tag_name,
+    const std::string & xml_tag_name,
     const BT::NodeConfiguration & conf)
  :  BT::ActionNodeBase(xml_tag_name, conf)
 {
     config().blackboard->get("node", node_);
 
-    vel_pub_ = node->create_publisher<geometry_msgs::msg::Twist>("/output_vel", 100);
+    vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>("/output_vel", 100);
 }
 
 void
 Patrol::halt()
 {
-    std::cout << "Patrol halt" << std::endl;
+    if (vel_pub_)
+    {
+        vel_pub_->publish(geometry_msgs::msg::Twist());
+    }
 }
 
 BT::NodeStatus
@@ -45,6 +48,7 @@ Patrol::tick()
     }
     else
     {
+        vel_pub_->publish(geometry_msgs::msg::Twist());
         return BT::NodeStatus::SUCCESS;
     }
 }

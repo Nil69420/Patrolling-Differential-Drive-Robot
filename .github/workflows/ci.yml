@@ -1,0 +1,195 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+env:
+  ROS_DISTRO: foxy
+
+jobs:
+  lint-static:
+    name: Lint And Static Analysis
+    runs-on: ubuntu-latest
+    container: ros:foxy-ros-base-focal
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Tooling
+        shell: bash
+        run: |
+          set -e
+          apt-get update
+          apt-get install -y --no-install-recommends cppcheck
+
+      - name: Run Cppcheck
+        shell: bash
+        run: |
+          set -e
+          cppcheck \
+            --enable=warning,performance,portability \
+            --error-exitcode=1 \
+            --language=c++ \
+            --std=c++17 \
+            --suppress=missingIncludeSystem \
+            --suppress=missingInclude \
+            include src tests
+
+  build-and-test:
+    name: Build And Test
+    runs-on: ubuntu-latest
+    container: ros:foxy-ros-base-focal
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          set -e
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            python3-vcstool \
+            python3-pip \
+            git
+
+      - name: Resolve ROS Dependencies
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          rosdep init 2>/dev/null || true
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: Build (Testing On)
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          colcon build --base-paths . --packages-select bt_patrolling --cmake-args -DBUILD_TESTING=ON
+
+      - name: Test
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          source install/setup.bash
+          colcon test --base-paths . --packages-select bt_patrolling --event-handlers console_cohesion+ --ctest-args --output-on-failure
+          colcon test-result --all --verbose --return-code-on-test-failure
+
+  navigation-contract:
+    name: Navigation Contract Tests
+    runs-on: ubuntu-latest
+    container: ros:foxy-ros-base-focal
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          set -e
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            python3-vcstool \
+            git
+
+      - name: Resolve ROS Dependencies
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          rosdep init 2>/dev/null || true
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: Build Tests
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          colcon build --base-paths . --packages-select bt_patrolling --cmake-args -DBUILD_TESTING=ON
+
+      - name: Execute Navigation Contract Cases
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          source install/setup.bash
+          NAV_BIN=$(find build -type f -name navigation_contract_test | head -n 1)
+          TRACK_BIN=$(find build -type f -name tracking_lifecycle_test | head -n 1)
+
+          if [ -z "${NAV_BIN}" ]; then
+            echo "navigation_contract_test binary not found"
+            exit 1
+          fi
+
+          if [ -z "${TRACK_BIN}" ]; then
+            echo "tracking_lifecycle_test binary not found"
+            exit 1
+          fi
+
+          "${NAV_BIN}" --gtest_filter=navigation_contract.required_waypoints_are_visited
+          "${NAV_BIN}" --gtest_filter=navigation_contract.move_btn_success:navigation_contract.move_btn_failure
+          "${TRACK_BIN}" --gtest_filter=tracking_lifecycle.track_objects_btn_1:tracking_lifecycle.track_objects_btn_2:tracking_lifecycle.track_objects_btn_3
+
+  optimized-build:
+    name: Optimized Build Verification
+    runs-on: ubuntu-latest
+    container: ros:foxy-ros-base-focal
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          set -e
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            python3-vcstool \
+            git
+
+      - name: Resolve ROS Dependencies
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          rosdep init 2>/dev/null || true
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: Build (Release + LTO)
+        shell: bash
+        run: |
+          set -e
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          colcon build \
+            --base-paths . \
+            --packages-select bt_patrolling \
+            --cmake-args \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
+            -DCMAKE_CXX_FLAGS=-O3
+
+      - name: Verify Optimized Artifact
+        shell: bash
+        run: |
+          set -e
+          test -f install/bt_patrolling/lib/bt_patrolling/patrolling_main
